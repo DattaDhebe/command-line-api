@@ -136,6 +136,12 @@ namespace System.CommandLine.Suggest
             else
             {
                 suggestionRegistration = _suggestionRegistration.FindRegistration(commandPath);
+
+                if (suggestionRegistration is null &&
+                    ResolveLinkTarget(commandPath) is FileInfo linkTarget)
+                {
+                    suggestionRegistration = _suggestionRegistration.FindRegistration(linkTarget);
+                }
             }
 
             var position = parseResult.GetValue(PositionOption);
@@ -154,7 +160,7 @@ namespace System.CommandLine.Suggest
             string targetArgs = FormatSuggestionArguments(
                 parseResult,
                 position,
-                targetExePath);
+                commandPath.FullName);
 
 #if DEBUG
             Program.LogDebug($"dotnet-suggest sending: {targetArgs}");
@@ -172,6 +178,22 @@ namespace System.CommandLine.Suggest
             parseResult.InvocationConfiguration.Output.Write(completions);
 
             return Task.FromResult(0);
+        }
+
+        private static FileInfo ResolveLinkTarget(FileInfo commandPath)
+        {
+            try
+            {
+                return commandPath.ResolveLinkTarget(returnFinalTarget: true) as FileInfo;
+            }
+            catch (IOException)
+            {
+                return null;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return null;
+            }
         }
 
         private static string ShellPrefixesToMatch(
